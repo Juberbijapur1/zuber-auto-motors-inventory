@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ZUBER AUTO MOTER GARAGE</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+      color: #333;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      padding: 1rem;
+    }
+
+    input, button, table {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+
+    button {
+      background: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .bill-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .bill-item button {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+
+    .bill-item button:hover {
+      opacity: 0.9;
+    }
+
+    .total {
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-top: 1rem;
+    }
+
+    .history {
+      margin-top: 2rem;
+    }
+
+    .bill-history {
+      margin-top: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    @media(max-width: 600px) {
+      .bill-item span {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ZUBER AUTO MOTER GARAGE</h1>
+    <p>📞 9739776005 |   Mahalingpur, India</p>
+  </header>
+
+  <div class="container">
+    <h2>Create New Bill</h2>
+    <input type="text" id="customer-name" placeholder="Customer Name" />
+    <input type="text" id="vehicle" placeholder="Vehicle (e.g., Maruti Swift)" />
+    <input type="text" id="item-name" placeholder="Item Name" />
+    <input type="number" id="quantity" placeholder="Quantity" />
+    <input type="number" id="price" placeholder="Price per Unit" />
+    <button onclick="addItem()">Add Item</button>
+
+    <div id="bill-items"></div>
+    <div class="total" id="total">Total: ₹0.00</div>
+    <button onclick="saveBill()">Save Bill</button>
+    <button onclick="generatePDF()">Convert to PDF</button>
+    <button onclick="startNewBill()">New Bill</button>
+
+    <div class="history">
+      <h2>Bill History</h2>
+      <div id="bill-history"></div>
+    </div>
+  </div>
+
+  <!-- pdfmake CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.11/pdfmake.min.js"></script> 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.11/vfs_fonts.min.js"></script> 
+
+  <script>
+    let currentBill = [];
+    let currentCustomer = "";
+    let currentVehicle = "";
+
+    function addItem() {
+      if (currentBill.length >= 100) {
+        alert("Maximum 100 items allowed per bill.");
+        return;
+      }
+
+      const name = document.getElementById('item-name').value.trim();
+      const qty = parseFloat(document.getElementById('quantity').value);
+      const pr = parseFloat(document.getElementById('price').value);
+
+      if (!name || isNaN(qty) || isNaN(pr) || qty <= 0 || pr <= 0) {
+        alert("Please enter valid item details.");
+        return;
+      }
+
+      currentCustomer = document.getElementById('customer-name').value.trim();
+      currentVehicle = document.getElementById('vehicle').value.trim();
+
+      const amount = qty * pr;
+      currentBill.push({ name, qty, pr, amount });
+      updateBillDisplay();
+      clearInputs();
+    }
+
+    function clearInputs() {
+      document.getElementById('item-name').value = '';
+      document.getElementById('quantity').value = '';
+      document.getElementById('price').value = '';
+    }
+
+    function updateBillDisplay() {
+      const container = document.getElementById('bill-items');
+      container.innerHTML = '';
+      let total = 0;
+
+      currentBill.forEach((item, index) => {
+        total += item.amount;
+        const div = document.createElement('div');
+        div.className = 'bill-item';
+        div.innerHTML = `
+          <span>${item.name} (x${item.qty}) - ₹${item.amount.toFixed(2)}</span>
+          <div>
+            <button style="background:#f39c12;" onclick="editItem(${index})">Edit</button>
+            <button style="background:#e74c3c;" onclick="deleteItem(${index})">Delete</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      document.getElementById('total').innerText = `Total: ₹${total.toFixed(2)}`;
+    }
+
+    function editItem(index) {
+      const item = currentBill[index];
+      const newQty = prompt("Edit Quantity:", item.qty);
+      const newPr = prompt("Edit Price per Unit:", item.pr);
+
+      if (newQty === null || newPr === null) return;
+
+      const qty = parseFloat(newQty);
+      const pr = parseFloat(newPr);
+
+      if (isNaN(qty) || isNaN(pr) || qty <= 0 || pr <= 0) {
+        alert("Invalid input. Edit canceled.");
+        return;
+      }
+
+      currentBill[index].qty = qty;
+      currentBill[index].pr = pr;
+      currentBill[index].amount = qty * pr;
+
+      updateBillDisplay();
+    }
+
+    function deleteItem(index) {
+      if (confirm("Are you sure you want to delete this item?")) {
+        currentBill.splice(index, 1);
+        updateBillDisplay();
+      }
+    }
+
+    function saveBill() {
+      if (currentBill.length === 0) {
+        alert("No items in the bill.");
+        return;
+      }
+
+      const timestamp = new Date().toLocaleString();
+      const billData = {
+        timestamp,
+        customer: currentCustomer,
+        vehicle: currentVehicle,
+        items: [...currentBill]
+      };
+
+      let history = JSON.parse(localStorage.getItem('bills') || '[]');
+      history.unshift(billData);
+      localStorage.setItem('bills', JSON.stringify(history));
+
+      currentBill = [];
+      currentCustomer = "";
+      currentVehicle = "";
+      updateBillDisplay();
+      updateHistoryDisplay();
+      alert("Bill saved!");
+    }
+
+    function generatePDF() {
+      if (currentBill.length === 0) {
+        alert("No items in the bill to convert to PDF.");
+        return;
+      }
+
+      const fileName = prompt("Enter a name for the PDF file:", "Bill");
+      if (!fileName) return;
+
+      const totalAmount = currentBill.reduce((sum, i) => sum + i.amount, 0).toFixed(2);
+      const customerName = document.getElementById('customer-name').value.trim() || "N/A";
+      const vehicleName = document.getElementById('vehicle').value.trim() || "N/A";
+
+      // Optional Logo (replace with your logo base64 or URL)
+      const logoImageURL = ""; // e.g., "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAAyCAIA..."
+
+      let content = [];
+
+      if (logoImageURL) {
+        content.push({
+          image: 'billLogo',
+          width: 100,
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        });
+      }
+
+      content.push(
+        { text: 'ZUBER AUTO MOTER GARAGE\n', style: 'header' },
+        { text: '  Mahalingpur, Karnataka | 📞 9739776005\n', style: 'contact' },
+        { text: 'GSTIN: coming soon \n', style: 'contact' },
+        { text: `Date: ${new Date().toLocaleString()}\n`, style: 'subheader' },
+        { text: `Customer: ${customerName}`, style: 'info' },
+        { text: `Vehicle: ${vehicleName}`, style: 'info' },
+        { text: '\nBill Details', style: 'sectionHeader' }
+      );
+
+      let tableBody = [
+        [{ text: 'Item', style: 'tableHeader' }, 
+         { text: 'Qty', style: 'tableHeader' }, 
+         { text: 'Rate', style: 'tableHeader' }, 
+         { text: 'Amount', style: 'tableHeader' }]
+      ];
+
+      currentBill.forEach(item => {
+        tableBody.push([
+          item.name,
+          { text: item.qty, alignment: 'center' },
+          { text: `₹${item.pr.toFixed(2)}`, alignment: 'right' },
+          { text: `₹${item.amount.toFixed(2)}`, alignment: 'right' }
+        ]);
+      });
+
+      tableBody.push([
+        { text: 'Total', colSpan: 3, alignment: 'right', bold: true },
+        '',
+        '',
+        { text: `₹${totalAmount}`, bold: true, alignment: 'right' }
+      ]);
+
+      content.push({
+        table: {
+          body: tableBody,
+          widths: ['*', 'auto', 'auto', 'auto'],
+          dontBreakRows: false
+        },
+        layout: {
+          hLineWidth: function(i, node) {
+            return (i === 0 || i === node.table.body.length) ? 2 : 1;
+          },
+          vLineWidth: function(i, node) {
+            return 1;
+          },
+          hLineColor: function(i, node) {
+            return (i === 0 || i === node.table.body.length) ? 'black' : 'gray';
+          },
+          padding: function(i) {
+            return 4;
+          }
+        }
+      });
+
+      content.push({
+        text: "\nThank you for your business!",
+        style: 'footer'
+      });
+
+      const docDefinition = {
+        content: content,
+        images: logoImageURL ? { billLogo: logoImageURL } : {},
+        styles: {
+          header: { fontSize: 20, bold: true, alignment: 'center', margin: [0, 0, 0, 5] },
+          contact: { fontSize: 12, alignment: 'center', margin: [0, 0, 0, 3] },
+          subheader: { fontSize: 14, bold: true, margin: [0, 10, 0, 5] },
+          info: { fontSize: 12, margin: [0, 2, 0, 2] },
+          sectionHeader: { fontSize: 14, bold: true, margin: [0, 15, 0, 5] },
+          tableHeader: { bold: true, fontSize: 13, color: 'black', alignment: 'center' },
+          footer: { fontSize: 12, alignment: 'center', margin: [0, 20, 0, 0] }
+        },
+        defaultStyle: {
+          fontSize: 11
+        }
+      };
+
+      pdfMake.createPdf(docDefinition).download(`${fileName}.pdf`);
+    }
+
+    function startNewBill() {
+      if (currentBill.length > 0) {
+        if (confirm("Start a new bill? Current items will be cleared.")) {
+          currentBill = [];
+          document.getElementById('customer-name').value = '';
+          document.getElementById('vehicle').value = '';
+          updateBillDisplay();
+        }
+      } else {
+        alert("Already a fresh bill!");
+      }
+    }
+
+    function updateHistoryDisplay() {
+      const historyContainer = document.getElementById('bill-history');
+      historyContainer.innerHTML = '';
+
+      const storedBills = JSON.parse(localStorage.getItem('bills') || '[]');
+
+      storedBills.forEach(bill => {
+        const div = document.createElement('div');
+        div.className = 'bill-history';
+
+        let itemsHTML = bill.items.map(item =>
+          `${item.name} x${item.qty} - ₹${item.amount.toFixed(2)}`
+        ).join('<br>');
+
+        div.innerHTML = `
+          <strong>${bill.timestamp}</strong><br>
+          Customer: ${bill.customer || 'N/A'}<br>
+          Vehicle: ${bill.vehicle || 'N/A'}<br>
+          ${itemsHTML}
+        `;
+        historyContainer.appendChild(div);
+      });
+    }
+
+    window.onload = () => {
+      updateHistoryDisplay();
+    };
+  </script>
+</body>
+</html>
